@@ -11,9 +11,11 @@ public class RedisDistributeLock implements DistributeLockApi {
     // use service id as content so A lock won't be unlocked by B
     // it is always used when a thread blocked during unlock and try unlock after expired
     private static String SERVICE_ID;
+
     private final static String LOCK_KEY = "redis_distribute_lock";
     private final static int MAX_TIME_SECOND = 600;
     private final static int REDIS_TIME_OUT = 20000000;
+    private final static String REDIS_BLOCK_QUEUE_NAME = "redis_distribute_lock_bq";
 
     private RedisDistributeLock(String serviceId) {
         redisPool = new ThreadLocal<>();
@@ -38,7 +40,10 @@ public class RedisDistributeLock implements DistributeLockApi {
             String[] redisConfig = redisUrl.substring(8).split("\\s*:\\s*");
             redisPool.set(new Jedis(redisConfig[0], Integer.parseInt(redisConfig[1]), REDIS_TIME_OUT));
         }
-        while (!tryLock(SERVICE_ID + "_" + Thread.currentThread().getName())) {}
+        while (!tryLock(SERVICE_ID + "_" + Thread.currentThread().getName())) {
+            // use loop will cause a high CPU load, try to use redis block queue to reduce it
+            redisPool.get().blpop(MAX_TIME_SECOND, REDIS_BLOCK_QUEUE_NAME);
+        }
         redisPool.get().expire(LOCK_KEY, MAX_TIME_SECOND);
     }
 
@@ -47,8 +52,10 @@ public class RedisDistributeLock implements DistributeLockApi {
         if (redisPool.get() == null) {
             throw new Exception("please lock first");
         }
-        if (hasLockWithContent(SERVICE_ID + "_" + Thread.currentThread().getName())) {
+        String content = SERVICE_ID + "_" + Thread.currentThread().getName();
+        if (hasLockWithContent(content)) {
             redisPool.get().del(LOCK_KEY);
+            redisPool.get().lpush(REDIS_BLOCK_QUEUE_NAME, content);
         }
     }
 
