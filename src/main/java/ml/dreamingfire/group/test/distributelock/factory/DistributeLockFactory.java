@@ -21,7 +21,7 @@ public class DistributeLockFactory {
         Objects.requireNonNull(nameCode, "param nameCode cannot be null, you can use \"\" for default distribute lock" +
                 " using redis");
         if (nameCode.equals(ZOOKEEPER_NAME_CODE)) {
-            return new ZookeeperDistributeLock();
+            return ZookeeperDistributeLock.getInstance();
         }
         return RedisDistributeLock.getInstance(PropertyFileUtil.get("SERVICE_ID"));
     }

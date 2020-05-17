@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 public class Demo {
     public static void main(String[] args) throws ClassNotFoundException {
         Class.forName("ml.dreamingfire.group.test.distributelock.util.PropertyFileUtil");
-        DistributeLockApi distributeLock = DistributeLockFactory.create("redis");
-//        DistributeLockApi distributeLock = DistributeLockFactory.create("zookeeper");
+//        DistributeLockApi distributeLock = DistributeLockFactory.create("redis");
+        DistributeLockApi distributeLock = DistributeLockFactory.create("zookeeper");
         ExecutorService executor = Executors.newFixedThreadPool(4);
         Counter counter = new Counter();
         for (int i=0; i < 10; i++) {
