@@ -3,6 +3,7 @@ package ml.dreamingfire.group.test.distributelock.concretelock;
 import ml.dreamingfire.group.test.distributelock.api.DistributeLockApi;
 import ml.dreamingfire.group.test.distributelock.util.PropertyFileUtil;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Transaction;
 
 public class RedisDistributeLock implements DistributeLockApi {
     private static RedisDistributeLock distributeLock = null;
@@ -52,10 +53,14 @@ public class RedisDistributeLock implements DistributeLockApi {
         if (redisPool.get() == null) {
             throw new Exception("please lock first");
         }
+        // use transaction
         String content = SERVICE_ID + "_" + Thread.currentThread().getName();
         if (hasLockWithContent(content)) {
-            redisPool.get().del(LOCK_KEY);
-            redisPool.get().lpush(REDIS_BLOCK_QUEUE_NAME, content);
+            try(Transaction transaction = redisPool.get().multi()) {
+                transaction.del(LOCK_KEY);
+                transaction.lpush(REDIS_BLOCK_QUEUE_NAME, content);
+                transaction.exec();
+            }
         }
     }
 
@@ -72,7 +77,9 @@ public class RedisDistributeLock implements DistributeLockApi {
     }
 
     private boolean hasLockWithContent(String content) {
+        redisPool.get().watch(LOCK_KEY);
         String value = redisPool.get().get(LOCK_KEY);
         return value != null && !value.equals("") && value.equals(content);
     }
+
 }
